@@ -1,0 +1,54 @@
+{
+  "name": "mongoose-drift",
+  "version": "1.0.0",
+  "description": "Schema versioning and diff tool for Mongoose",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "mongoose-drift": "./dist/cli.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "test": "jest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mongoose",
+    "mongodb",
+    "schema",
+    "migration",
+    "diff",
+    "versioning"
+  ],
+  "author": "Ashwin S I <siashwin2005@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ashwinn-si/mongoose-drift.git"
+  },
+  "homepage": "https://github.com/ashwinn-si/mongoose-drift#readme",
+  "bugs": {
+    "url": "https://github.com/ashwinn-si/mongoose-drift/issues"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "glob": "^10.4.5",
+    "ts-node": "^10.9.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.8",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^30.3.0",
+    "jest-util": "^30.3.0",
+    "mongoose": "^9.4.1",
+    "ts-jest": "^29.1.5",
+    "typescript": "^5.5.2"
+  }
+}

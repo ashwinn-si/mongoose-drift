@@ -1,0 +1,22 @@
+# Source (dist/ is published via "files" in package.json)
+src/
+tests/
+
+# Config
+tsconfig.json
+jest.config.js
+.claude
+idea.md
+implementation.md
+
+# Local data
+.mongoose-drift/
+migrations/
+
+# Dev files
+.gitignore
+.DS_Store
+.vscode/
+.idea/
+coverage/
+*.tgz
