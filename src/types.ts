@@ -10,6 +10,14 @@ export const FieldDefinitionSchema = z.object({
   enum: z.array(z.unknown()).optional(),
   index: z.boolean().optional(),
   unique: z.boolean().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  trim: z.boolean().optional(),
+  minlength: z.number().optional(),
+  maxlength: z.number().optional(),
+  select: z.boolean().optional(),
+  immutable: z.boolean().optional(),
+  sparse: z.boolean().optional(),
 }).catchall(z.unknown());
 
 export const IndexDefinitionSchema = z.object({
@@ -24,6 +32,7 @@ export const IndexDefinitionSchema = z.object({
 export const CollectionSchemaSchema = z.object({
   fields: z.record(FieldDefinitionSchema),
   indexes: z.array(IndexDefinitionSchema),
+  options: z.record(z.unknown()).optional(),
 });
 
 export const SchemaSnapshotSchema = z.object({

@@ -89,6 +89,42 @@ describe('extractSchemas', () => {
     expect(Array.isArray(rent.indexes)).toBe(true);
   });
 
+  it('extracts raw Schema exports (not compiled Models)', async () => {
+    const collections = await extractSchemas(MODELS_DIR);
+    // The Apartment file exports a raw Schema named `platformApartmentSchema`
+    // The key should be derived from the export name with "Schema" stripped
+    expect(collections['platformApartment']).toBeDefined();
+
+    const fields = collections['platformApartment'].fields;
+    expect(fields['clientId']).toBeDefined();
+    expect(fields['name']).toBeDefined();
+    expect(fields['clientDbApartmentRef']).toBeDefined();
+    expect(fields['allowedFlatCount']).toBeDefined();
+    expect(fields['isActive']).toBeDefined();
+  });
+
+  it('extracts field metadata from raw Schema exports', async () => {
+    const collections = await extractSchemas(MODELS_DIR);
+    const fields = collections['platformApartment'].fields;
+
+    // clientId should have ref and required
+    expect(fields['clientId'].ref).toBe('clients');
+    expect(fields['clientId'].required).toBe(true);
+
+    // name should be required
+    expect(fields['name'].required).toBe(true);
+
+    // isActive should have a default
+    expect(fields['isActive'].default).toBe(true);
+  });
+
+  it('includes raw Schema models in total count', async () => {
+    const collections = await extractSchemas(MODELS_DIR);
+    const names = Object.keys(collections);
+    // User, Rent, Payment, Property (compiled Models) + platformApartment (raw Schema)
+    expect(names.length).toBeGreaterThanOrEqual(5);
+  });
+
   it('returns empty collections for a directory with no model files', async () => {
     // Create a temp reference to an empty-ish path within the project
     // The migrations directory exists but has no mongoose models

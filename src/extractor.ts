@@ -11,49 +11,55 @@ try {
 }
 
 /**
- * Normalize a raw Mongoose SchemaType into a plain FieldDefinition object.
+ * Normalize a Mongoose SchemaType into a plain FieldDefinition object.
  */
-function normalizeField(rawField: unknown): FieldDefinition {
-  if (typeof rawField === 'function') {
-    return { type: rawField.name || 'Mixed' };
+function normalizeFieldFromPath(st: any): FieldDefinition {
+  const options = st.options || {};
+  
+  // Prefer instance for the type name (e.g. 'ObjectId' instead of 'SchemaObjectId')
+  let typeName = st.instance || 'Mixed';
+  
+  // Arrays handling
+  if (typeName === 'Array') {
+      let elType = 'Mixed';
+      if (st.caster && st.caster.instance) {
+          elType = st.caster.instance;
+      } else if (st.embeddedSchemaType && st.embeddedSchemaType.instance) {
+          elType = st.embeddedSchemaType.instance;
+      } else if (st.schemaOptions && st.schemaOptions.type && Array.isArray(st.schemaOptions.type) && st.schemaOptions.type.length > 0) {
+          const inner = st.schemaOptions.type[0];
+          if (inner && inner.name) elType = inner.name;
+          else if (typeof inner === 'string') elType = inner;
+          else if (typeof inner === 'object' && inner.type && inner.type.name) elType = inner.type.name;
+      } else if (Array.isArray(options.type) && options.type.length > 0) {
+          const inner = options.type[0];
+          if (inner && inner.name) elType = inner.name;
+          else if (typeof inner === 'string') elType = inner;
+          else if (typeof inner === 'object' && inner.type && inner.type.name) elType = inner.type.name;
+      }
+      typeName = `Array<${elType}>`;
   }
 
-  if (typeof rawField === 'object' && rawField !== null) {
-    const field = rawField as Record<string, unknown>;
-    
-    // Arrays handling (e.g. { type: [String] } or [String])
-    if (Array.isArray(rawField)) {
-        if (rawField.length > 0 && typeof rawField[0] === 'function') {
-             return { type: `Array<${rawField[0].name}>` };
-        }
-        return { type: 'Array' };
-    }
+  const result: FieldDefinition = { type: typeName };
 
-    if (Array.isArray(field.type)) {
-       const elType = typeof field.type[0] === 'function' ? (field.type[0] as Function).name : String(field.type[0] ?? 'Mixed');
-       const result: FieldDefinition = { type: `Array<${elType}>` };
-       if (field.required !== undefined) result.required = Boolean(field.required);
-       return result;
-    }
+  if (options.required !== undefined) result.required = Boolean(options.required);
+  if (options.default !== undefined) result.default = options.default;
+  if (options.ref !== undefined) result.ref = String(options.ref);
+  if (options.enum !== undefined) result.enum = options.enum as unknown[];
+  if (options.index !== undefined) result.index = Boolean(options.index);
+  if (options.unique !== undefined) result.unique = Boolean(options.unique);
+  
+  // Validation and other options
+  if (options.min !== undefined) result.min = Number(options.min);
+  if (options.max !== undefined) result.max = Number(options.max);
+  if (options.trim !== undefined) result.trim = Boolean(options.trim);
+  if (options.minlength !== undefined) result.minlength = Number(options.minlength);
+  if (options.maxlength !== undefined) result.maxlength = Number(options.maxlength);
+  if (options.select !== undefined) result.select = Boolean(options.select);
+  if (options.immutable !== undefined) result.immutable = Boolean(options.immutable);
+  if (options.sparse !== undefined) result.sparse = Boolean(options.sparse);
 
-    const typeValue = field.type;
-    const result: FieldDefinition = {
-      type: typeof typeValue === 'function'
-        ? (typeValue as Function).name
-        : String(typeValue ?? 'Mixed')
-    };
-
-    if (field.required !== undefined) result.required = Boolean(field.required);
-    if (field.default !== undefined) result.default = field.default;
-    if (field.ref !== undefined) result.ref = String(field.ref);
-    if (field.enum !== undefined) result.enum = field.enum as unknown[];
-    if (field.index !== undefined) result.index = Boolean(field.index);
-    if (field.unique !== undefined) result.unique = Boolean(field.unique);
-
-    return result;
-  }
-
-  return { type: 'Mixed' };
+  return result;
 }
 
 /**
@@ -67,7 +73,7 @@ function extractFromSchema(schema: any): CollectionSchema {
     for (const [pathName, schemaType] of Object.entries(schema.paths)) {
       if (pathName === '__v' || pathName === '_id') continue;
       const st = schemaType as any;
-      fields[pathName] = normalizeField(st.options ?? st.instance);
+      fields[pathName] = normalizeFieldFromPath(st);
     }
   }
 
@@ -77,7 +83,19 @@ function extractFromSchema(schema: any): CollectionSchema {
     }
   }
 
-  return { fields, indexes };
+  const result: CollectionSchema = { fields, indexes };
+  
+  if (schema.options) {
+    const cleanOptions: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(schema.options)) {
+      if (typeof v !== 'function') {
+        cleanOptions[k] = v;
+      }
+    }
+    result.options = cleanOptions;
+  }
+
+  return result;
 }
 
 /**
@@ -106,16 +124,30 @@ export async function extractSchemas(
       const module = require(file);
       const exported = module.default ?? module;
 
+      // Case 1: Default export is a compiled Model (model.schema.paths)
       if (exported?.schema?.paths) {
         const modelName = exported.modelName ?? path.basename(file, path.extname(file));
         collections[modelName] = extractFromSchema(exported.schema);
         continue;
       }
 
+      // Case 2: Default export is a raw Schema (schema.paths)
+      if (exported?.paths && typeof exported.path === 'function') {
+        const modelName = path.basename(file, path.extname(file));
+        collections[modelName] = extractFromSchema(exported);
+        continue;
+      }
+
+      // Case 3: Named exports — check each for Model or raw Schema
       for (const [key, value] of Object.entries(exported)) {
         const v = value as any;
         if (v?.schema?.paths) {
+          // Named export is a compiled Model
           collections[v.modelName ?? key] = extractFromSchema(v.schema);
+        } else if (v?.paths && typeof v.path === 'function') {
+          // Named export is a raw Schema
+          const name = key.replace(/Schema$/i, '') || path.basename(file, path.extname(file));
+          collections[name] = extractFromSchema(v);
         }
       }
     } catch (err) {
