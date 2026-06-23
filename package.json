@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "mongoose-drift": "./dist/cli.js"
+    "mongoose-drift": "dist/cli.js"
   },
   "files": [
     "dist/"
@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ashwinn-si/mongoose-drift.git"
+    "url": "git+https://github.com/ashwinn-si/mongoose-drift.git"
   },
   "homepage": "https://github.com/ashwinn-si/mongoose-drift#readme",
   "bugs": {
