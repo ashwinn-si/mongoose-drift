@@ -16,6 +16,7 @@ Run in dev mode (no build step):
 npm run dev -- <command>
 # e.g.
 npm run dev -- init --models ./tests/models
+npm run dev -- setup-ai
 ```
 
 Build the dist output:
@@ -48,10 +49,25 @@ src/
   stub-generator.ts Generates migrate-mongo compatible .js migration stubs
   types.ts          Zod schemas + inferred TypeScript types
   index.ts          Public programmatic API exports
+  ai-setup.ts       Writes/updates AI agent instruction files (marker-based upsert)
+  postinstall.ts    Entry point for the npm postinstall hook
 tests/
   models/           Fixture Mongoose models used by the test suite
 docs/
   ARCHITECTURE.md   Module diagram and data flow
+```
+
+## AI Agent Files
+
+`src/ai-setup.ts` is responsible for writing instruction blocks into agent-specific files (`CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, etc.). The logic uses HTML comment markers (`<!-- mongoose-drift:start/end -->`) so the block can be updated without overwriting surrounding content.
+
+If you change the content that gets injected (e.g. new commands, new guidance), update `buildContent()` in `ai-setup.ts`. The `postinstall` hook and the `setup-ai` CLI command both call the same `setupAI()` function.
+
+When testing postinstall behaviour locally, use `INIT_CWD` to point it at a temp directory:
+
+```bash
+npm run build
+INIT_CWD=/tmp/my-test-project node dist/postinstall.js
 ```
 
 ## Code Style
@@ -65,7 +81,7 @@ docs/
 
 1. Fork and branch from `master`.
 2. Keep PRs focused — one feature or fix per PR.
-3. Update `CHANGELOG.md` under `[Unreleased]`.
+3. Update `CHANGELOG.md` under a new `[Unreleased]` section.
 4. Tests must pass (`npm test`).
 
 ## Reporting Issues
