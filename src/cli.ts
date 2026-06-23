@@ -7,6 +7,7 @@ import { saveSnapshot, loadSnapshot, listSnapshots, saveConfig } from './snapsho
 import { diffSnapshots, detectPotentialRenames } from './diff';
 import { printDiff, generateTextReport } from './reporter';
 import { generateStub } from './stub-generator';
+import { setupAI } from './ai-setup';
 import chalk from 'chalk';
 
 const program = new Command();
@@ -14,7 +15,7 @@ const program = new Command();
 program
   .name('mongoose-drift')
   .description('Schema versioning and diff tool for Mongoose')
-  .version('1.1.0', '-v, --cli-version');
+  .version('1.2.0', '-v, --cli-version');
 
 program
   .command('init')
@@ -136,6 +137,18 @@ program
     try {
       const snapshot = await loadSnapshot(version, project);
       console.log(JSON.stringify(snapshot.collections, null, 2));
+    } catch (err: any) {
+      console.error(chalk.red(`\n✖ ${err.message}\n`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('setup-ai')
+  .description('Generate or refresh AI agent instruction files (CLAUDE.md, .cursorrules, copilot-instructions.md, etc.)')
+  .action(() => {
+    try {
+      setupAI(process.cwd());
     } catch (err: any) {
       console.error(chalk.red(`\n✖ ${err.message}\n`));
       process.exit(1);

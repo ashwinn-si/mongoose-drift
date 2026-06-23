@@ -1,6 +1,6 @@
 {
   "name": "mongoose-drift",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Schema versioning and diff tool for Mongoose",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,6 +14,7 @@
     "build": "tsc",
     "dev": "ts-node src/cli.ts",
     "test": "jest",
+    "postinstall": "node dist/postinstall.js",
     "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [

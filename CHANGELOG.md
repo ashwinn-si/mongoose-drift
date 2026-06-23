@@ -2,6 +2,14 @@
 
 All notable changes to mongoose-drift are documented here.
 
+## [1.2.0] - 2026-06-23
+
+### Added
+- AI agent awareness: `postinstall` script auto-generates instruction files for Claude Code (`CLAUDE.md`), Cursor (`.cursor/rules/mongoose-drift.mdc`, `.cursorrules`), GitHub Copilot (`.github/copilot-instructions.md`), Windsurf (`.windsurfrules`), and Augment (`.augment/guidelines.md`).
+- Existing instruction files are updated in-place using HTML comment markers — no content is overwritten.
+- `setup-ai` CLI command lets users refresh agent files after adding snapshots: `npx mongoose-drift setup-ai`.
+- Known snapshots are listed in the injected content when `.mongoose-drift/` already has versions.
+
 ## [1.1.0] - 2026-06-23
 
 ### Added
