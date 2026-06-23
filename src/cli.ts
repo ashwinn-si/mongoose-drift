@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import * as fs from 'fs';
+import * as nodePath from 'path';
 import { Command } from 'commander';
 import { saveSnapshot, loadSnapshot, listSnapshots, saveConfig } from './snapshot';
 import { diffSnapshots, detectPotentialRenames } from './diff';
@@ -12,7 +14,7 @@ const program = new Command();
 program
   .name('mongoose-drift')
   .description('Schema versioning and diff tool for Mongoose')
-  .version('1.0.0', '-v, --cli-version');
+  .version('1.1.0', '-v, --cli-version');
 
 program
   .command('init')
@@ -88,19 +90,15 @@ program
       }
 
       if (options.txt) {
-        import('fs').then(fs => {
-          import('path').then(nodePath => {
-            const txtContent = generateTextReport(result, from, to);
-            const fileName = `${from}-to-${to}-diff.txt`.replace(/\s+/g, '-');
-            const outPath = typeof options.txt === 'string' 
-              ? nodePath.resolve(process.cwd(), options.txt) 
-              : nodePath.resolve(process.cwd(), 'migrations', project, fileName);
-              
-            fs.mkdirSync(nodePath.dirname(outPath), { recursive: true });
-            fs.writeFileSync(outPath, txtContent);
-            console.log(chalk.green(`✔ Text diff exported to: ${outPath}`));
-          });
-        });
+        const txtContent = generateTextReport(result, from, to);
+        const fileName = `${from}-to-${to}-diff.txt`.replace(/\s+/g, '-');
+        const outPath = typeof options.txt === 'string'
+          ? nodePath.resolve(process.cwd(), options.txt)
+          : nodePath.resolve(process.cwd(), 'migrations', project, fileName);
+
+        fs.mkdirSync(nodePath.dirname(outPath), { recursive: true });
+        fs.writeFileSync(outPath, txtContent);
+        console.log(chalk.green(`✔ Text diff exported to: ${outPath}`));
       }
     } catch (err: any) {
       console.error(chalk.red(`\n✖ ${err.message}\n`));

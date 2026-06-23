@@ -55,6 +55,22 @@ export function generateStub(
 
       lines.push('');
     }
+
+    if (change.type === 'modified' && change.indexChanges) {
+      lines.push(`    // Collection: ${collection} (index changes)`);
+      for (const idxChange of change.indexChanges) {
+        const fields = JSON.stringify(idxChange.fields);
+        const opts = idxChange.options ? `, ${JSON.stringify(idxChange.options)}` : '';
+        if (idxChange.type === 'added') {
+          lines.push(`    // TODO: New index ${fields} — create if needed`);
+          lines.push(`    // await db.collection('${collection}').createIndex(${fields}${opts});`);
+        } else {
+          lines.push(`    // TODO: Index ${fields} removed — drop if safe`);
+          lines.push(`    // await db.collection('${collection}').dropIndex(${fields});`);
+        }
+      }
+      lines.push('');
+    }
   }
 
   lines.push(`  },`);

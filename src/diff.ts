@@ -4,6 +4,8 @@ import {
   CollectionChange,
   FieldChange,
   FieldDefinition,
+  IndexDefinition,
+  IndexChange,
 } from './types';
 
 function fieldsAreDifferent(a: FieldDefinition, b: FieldDefinition): boolean {
@@ -35,6 +37,31 @@ function diffCollection(
           after: after[field],
         });
       }
+    }
+  }
+
+  return changes;
+}
+
+function diffIndexes(
+  before: IndexDefinition[],
+  after: IndexDefinition[]
+): IndexChange[] {
+  const serialize = (idx: IndexDefinition) => JSON.stringify(idx);
+  const beforeSet = new Set(before.map(serialize));
+  const afterSet = new Set(after.map(serialize));
+
+  const changes: IndexChange[] = [];
+
+  for (const idx of before) {
+    if (!afterSet.has(serialize(idx))) {
+      changes.push({ type: 'removed', fields: idx.fields, options: idx.options });
+    }
+  }
+
+  for (const idx of after) {
+    if (!beforeSet.has(serialize(idx))) {
+      changes.push({ type: 'added', fields: idx.fields, options: idx.options });
     }
   }
 
@@ -89,11 +116,16 @@ export function diffSnapshots(
       after.collections[collectionName].fields
     );
 
-    if (fieldChanges.length > 0) {
-      result.collections[collectionName] = {
-        type: 'modified',
-        changes: fieldChanges,
-      };
+    const indexChanges = diffIndexes(
+      before.collections[collectionName].indexes,
+      after.collections[collectionName].indexes
+    );
+
+    if (fieldChanges.length > 0 || indexChanges.length > 0) {
+      const change: CollectionChange = { type: 'modified' };
+      if (fieldChanges.length > 0) change.changes = fieldChanges;
+      if (indexChanges.length > 0) change.indexChanges = indexChanges;
+      result.collections[collectionName] = change;
     }
   }
 

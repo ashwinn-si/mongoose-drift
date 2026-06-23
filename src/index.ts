@@ -6,6 +6,8 @@ export type {
   SchemaSnapshot,
   DiffResult,
   FieldChange,
+  IndexChange,
   CollectionChange,
   FieldDefinition,
+  IndexDefinition,
 } from './types';

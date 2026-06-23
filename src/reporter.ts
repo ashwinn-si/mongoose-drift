@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { DiffResult, FieldChange } from './types';
+import { DiffResult, FieldChange, IndexChange } from './types';
 
 function formatFieldChange(change: FieldChange): string {
   const typeStr = change.after?.type ?? change.before?.type ?? 'Unknown';
@@ -24,6 +24,24 @@ function formatFieldChange(change: FieldChange): string {
   }
 }
 
+function formatIndexChange(change: IndexChange): string {
+  const fields = JSON.stringify(change.fields);
+  const opts = change.options ? ` (${JSON.stringify(change.options)})` : '';
+  if (change.type === 'added') {
+    return chalk.green(`  + index ${fields}${opts}  [INDEX ADDED]`);
+  }
+  return chalk.red(`  - index ${fields}${opts}  [INDEX REMOVED]`);
+}
+
+function formatIndexChangeText(change: IndexChange): string {
+  const fields = JSON.stringify(change.fields);
+  const opts = change.options ? ` (${JSON.stringify(change.options)})` : '';
+  if (change.type === 'added') {
+    return `  + index ${fields}${opts}  [INDEX ADDED]`;
+  }
+  return `  - index ${fields}${opts}  [INDEX REMOVED]`;
+}
+
 export function printDiff(result: DiffResult, from: string, to: string): void {
   const collections = Object.entries(result.collections);
 
@@ -41,9 +59,12 @@ export function printDiff(result: DiffResult, from: string, to: string): void {
       console.log(chalk.green(`  ✦ New collection detected`));
     } else if (change.type === 'removed') {
       console.log(chalk.red(`  ✖ Collection removed`));
-    } else if (change.type === 'modified' && change.changes) {
-      for (const fieldChange of change.changes) {
+    } else if (change.type === 'modified') {
+      for (const fieldChange of change.changes ?? []) {
         console.log(formatFieldChange(fieldChange));
+      }
+      for (const indexChange of change.indexChanges ?? []) {
+        console.log(formatIndexChange(indexChange));
       }
     }
 
@@ -104,9 +125,12 @@ export function generateTextReport(result: DiffResult, from: string, to: string)
       lines.push(`  ✦ New collection detected`);
     } else if (change.type === 'removed') {
       lines.push(`  ✖ Collection removed`);
-    } else if (change.type === 'modified' && change.changes) {
-      for (const fieldChange of change.changes) {
+    } else if (change.type === 'modified') {
+      for (const fieldChange of change.changes ?? []) {
         lines.push(formatFieldChangeText(fieldChange));
+      }
+      for (const indexChange of change.indexChanges ?? []) {
+        lines.push(formatIndexChangeText(indexChange));
       }
     }
 

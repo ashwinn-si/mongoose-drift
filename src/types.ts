@@ -59,9 +59,16 @@ export type FieldChange = {
   renamedFrom?: string;
 };
 
+export type IndexChange = {
+  type: 'added' | 'removed';
+  fields: Record<string, 1 | -1 | 'text'>;
+  options?: IndexDefinition['options'];
+};
+
 export type CollectionChange = {
   type: 'added' | 'removed' | 'modified';
   changes?: FieldChange[];
+  indexChanges?: IndexChange[];
 };
 
 export type DiffResult = {
