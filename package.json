@@ -1,6 +1,6 @@
 {
   "name": "mongoose-drift",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Schema versioning and diff tool for Mongoose",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
