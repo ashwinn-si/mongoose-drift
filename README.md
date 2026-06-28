@@ -179,6 +179,20 @@ The agent will run `npx mongoose-drift show <version>` or `diff <version> HEAD` 
 | `--txt [path]` | Export diff as a plain-text file |
 | `-p, --project <name>` | Use a specific project namespace (default: `default`) |
 
+### Supported index types
+
+mongoose-drift tracks all MongoDB index types in snapshots and diffs:
+
+| Type | Example |
+|------|---------|
+| Ascending / Descending | `{ field: 1 }` / `{ field: -1 }` |
+| Text | `{ description: 'text' }` |
+| 2dsphere (geo) | `{ location: '2dsphere' }` |
+| 2d (legacy geo) | `{ coords: '2d' }` |
+| Hashed | `{ userId: 'hashed' }` |
+| Wildcard | `{ '$**': 1 }` |
+| Compound | `{ tenant: 1, dueDate: -1 }` |
+
 ---
 
 ## Multi-project / monorepo
@@ -204,6 +218,7 @@ import {
   extractSchemas,
   diffSnapshots,
   detectPotentialRenames,
+  loadSnapshot,
 } from 'mongoose-drift';
 
 const before = await loadSnapshot('1.0.0', 'default');
