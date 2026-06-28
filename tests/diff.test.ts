@@ -284,6 +284,166 @@ describe('diffSnapshots', () => {
 });
 
 // ─────────────────────────────────────────────────────
+// diffSnapshots — index diffing
+// ─────────────────────────────────────────────────────
+describe('diffSnapshots — index changes', () => {
+  it('detects an added index', () => {
+    const before = makeSnapshot({
+      User: { fields: { email: { type: 'String' } }, indexes: [] },
+    });
+    const after = makeSnapshot({
+      User: {
+        fields: { email: { type: 'String' } },
+        indexes: [{ fields: { email: 1 }, options: { unique: true } }],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    expect(result.collections['User'].type).toBe('modified');
+    const indexChanges = result.collections['User'].indexChanges!;
+    expect(indexChanges).toHaveLength(1);
+    expect(indexChanges[0].type).toBe('added');
+    expect(indexChanges[0].fields).toEqual({ email: 1 });
+    expect(indexChanges[0].options?.unique).toBe(true);
+  });
+
+  it('detects a removed index', () => {
+    const before = makeSnapshot({
+      User: {
+        fields: { email: { type: 'String' } },
+        indexes: [{ fields: { email: 1 }, options: { unique: true } }],
+      },
+    });
+    const after = makeSnapshot({
+      User: { fields: { email: { type: 'String' } }, indexes: [] },
+    });
+    const result = diffSnapshots(before, after);
+    const indexChanges = result.collections['User'].indexChanges!;
+    expect(indexChanges).toHaveLength(1);
+    expect(indexChanges[0].type).toBe('removed');
+    expect(indexChanges[0].fields).toEqual({ email: 1 });
+  });
+
+  it('reports no changes when indexes are identical', () => {
+    const snapshot = makeSnapshot({
+      User: {
+        fields: { email: { type: 'String' } },
+        indexes: [{ fields: { email: 1 }, options: { unique: true } }],
+      },
+    });
+    const result = diffSnapshots(snapshot, snapshot);
+    expect(Object.keys(result.collections)).toHaveLength(0);
+  });
+
+  it('reports modified with only indexChanges and no changes key when only indexes differ', () => {
+    const before = makeSnapshot({
+      Order: { fields: { total: { type: 'Number' } }, indexes: [] },
+    });
+    const after = makeSnapshot({
+      Order: {
+        fields: { total: { type: 'Number' } },
+        indexes: [{ fields: { total: -1 } }],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    const change = result.collections['Order'];
+    expect(change.type).toBe('modified');
+    expect(change.changes).toBeUndefined();
+    expect(change.indexChanges).toHaveLength(1);
+  });
+
+  it('treats a direction change as remove + add', () => {
+    const before = makeSnapshot({
+      Rent: {
+        fields: { dueDate: { type: 'Date' } },
+        indexes: [{ fields: { dueDate: -1 } }],
+      },
+    });
+    const after = makeSnapshot({
+      Rent: {
+        fields: { dueDate: { type: 'Date' } },
+        indexes: [{ fields: { dueDate: 1 } }],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    const indexChanges = result.collections['Rent'].indexChanges!;
+    expect(indexChanges).toHaveLength(2);
+    expect(indexChanges.some(i => i.type === 'removed')).toBe(true);
+    expect(indexChanges.some(i => i.type === 'added')).toBe(true);
+  });
+
+  it('detects both field and index changes in the same collection', () => {
+    const before = makeSnapshot({
+      Product: {
+        fields: { name: { type: 'String' }, price: { type: 'Number' } },
+        indexes: [{ fields: { name: 1 } }],
+      },
+    });
+    const after = makeSnapshot({
+      Product: {
+        fields: {
+          name: { type: 'String' },
+          price: { type: 'Number' },
+          sku: { type: 'String' },
+        },
+        indexes: [{ fields: { price: 1 } }],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    const change = result.collections['Product'];
+    expect(change.type).toBe('modified');
+    expect(change.changes).toHaveLength(1);
+    expect(change.changes![0].field).toBe('sku');
+    expect(change.indexChanges).toHaveLength(2);
+  });
+
+  it('preserves index options in detected changes', () => {
+    const before = makeSnapshot({
+      Log: { fields: { ref: { type: 'String' } }, indexes: [] },
+    });
+    const after = makeSnapshot({
+      Log: {
+        fields: { ref: { type: 'String' } },
+        indexes: [{ fields: { ref: 1 }, options: { sparse: true, name: 'ref_sparse' } }],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    const idx = result.collections['Log'].indexChanges![0];
+    expect(idx.options?.sparse).toBe(true);
+    expect(idx.options?.name).toBe('ref_sparse');
+  });
+
+  it('detects multiple simultaneous index adds and removes', () => {
+    const before = makeSnapshot({
+      Event: {
+        fields: { ts: { type: 'Date' }, type: { type: 'String' } },
+        indexes: [
+          { fields: { ts: -1 } },
+          { fields: { type: 1 } },
+        ],
+      },
+    });
+    const after = makeSnapshot({
+      Event: {
+        fields: { ts: { type: 'Date' }, type: { type: 'String' } },
+        indexes: [
+          { fields: { ts: -1 } },
+          { fields: { ts: 1, type: 1 } },
+        ],
+      },
+    });
+    const result = diffSnapshots(before, after);
+    const indexChanges = result.collections['Event'].indexChanges!;
+    expect(indexChanges).toHaveLength(2);
+    const removed = indexChanges.filter(i => i.type === 'removed');
+    const added = indexChanges.filter(i => i.type === 'added');
+    expect(removed).toHaveLength(1);
+    expect(added).toHaveLength(1);
+    expect(removed[0].fields).toEqual({ type: 1 });
+    expect(added[0].fields).toEqual({ ts: 1, type: 1 });
+  });
+});
+
+// ─────────────────────────────────────────────────────
 // detectPotentialRenames
 // ─────────────────────────────────────────────────────
 describe('detectPotentialRenames', () => {

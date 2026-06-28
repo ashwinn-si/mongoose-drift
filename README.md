@@ -1,137 +1,201 @@
 # mongoose-drift
 
-Schema versioning and diff tool for Mongoose / MongoDB.
-
-Track changes to your Mongoose schemas over time. See exactly what fields and indexes were added, modified, removed, or potentially renamed between snapshots. Generates migration stubs for `migrate-mongo` and exports plain-text diffs out of the box. AI coding agents are automatically made aware of the tool and your schema on install.
+**Track your Mongoose schema changes. Generate migrations. Keep your AI tools in the loop.**
 
 [![npm version](https://img.shields.io/npm/v/mongoose-drift.svg)](https://www.npmjs.com/package/mongoose-drift)
 [![license](https://img.shields.io/npm/l/mongoose-drift.svg)](https://github.com/ashwinn-si/mongoose-drift/blob/main/LICENSE)
 
-## Features
+---
 
-- **Schema Extraction** — Parses `.js` and `.ts` Mongoose models automatically, including nested objects, arrays, refs, and enums.
-- **Snapshot Versioning** — Save versioned snapshots of your schema and compare any two versions at any time.
-- **Field-Level Diffing** — Detects added, removed, modified, and potentially renamed fields with before/after context.
-- **Index Diffing** — Detects added and removed indexes alongside field changes.
-- **Migration Stub Generation** — Scaffolds `migrate-mongo` compatible `.js` migration files from any diff, including `createIndex` / `dropIndex` stubs.
-- **Multi-Project Support** — Isolate multiple services or databases using the `-p, --project <name>` flag.
-- **Zod Validation** — All snapshot files are validated on read with Zod schemas to catch corruption early.
-- **Export Formats** — Output diffs as colored terminal output, JSON, or plain-text files.
-- **AI Agent Awareness** — On install, automatically writes instruction blocks into `CLAUDE.md`, `.cursorrules`, `.github/copilot-instructions.md`, `.windsurfrules`, `.augment/guidelines.md`, and `.cursor/rules/mongoose-drift.mdc` so Cursor, Claude Code, GitHub Copilot, Windsurf, Augment, and other agents understand your schema tooling without any manual setup.
+## The problem
 
-## Installation
+You add a field to a Mongoose model. You remove another one. Two weeks later you can't remember what changed, and there's no migration file. mongoose-drift fixes that.
 
-```bash
-npm install -g mongoose-drift
+Snapshot your schema, change your models, then diff the two to see exactly what's different — field by field, index by index. Generate a migration stub from the diff. And if you use an AI coding tool like Cursor, Claude Code, or Copilot, mongoose-drift automatically tells it about your schema on install.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    A["Your Mongoose\nmodel files"] -->|"snapshot --version 1.0.0"| B[("Snapshot saved\n.mongoose-drift/")]
+    B --> C["Edit your models\n(add fields, remove fields, etc.)"]
+    C -->|"diff 1.0.0 HEAD"| D["Diff output"]
+    D -->|"--stub"| E["migration.js\n(migrate-mongo)"]
+    D -->|"--json"| F["diff.json\n(machine-readable)"]
+    D -->|"--txt"| G["diff.txt\n(plain text)"]
 ```
 
-Or as a dev dependency:
+> **What is `HEAD`?** It means "my models right now, on disk" — no snapshot needed. `diff 1.0.0 HEAD` compares snapshot v1.0.0 against your current live model files.
+
+---
+
+## Installation
 
 ```bash
 npm install -D mongoose-drift
 ```
 
-On install, mongoose-drift automatically writes AI agent instruction files into your project. To refresh them after adding snapshots:
+> After install, mongoose-drift automatically writes a context block into your AI agent files (`CLAUDE.md`, `.cursorrules`, `copilot-instructions.md`, etc.) so your coding tools already know how to use it. [See AI integration →](#ai-integration)
 
-```bash
-npx mongoose-drift setup-ai
-```
+---
 
-## Quick Start
+## Quick start
 
-### 1. Initialize
+### Step 1 — Initialize
 
-Point mongoose-drift at your models directory:
+Point mongoose-drift at your models folder:
 
 ```bash
 npx mongoose-drift init --models ./src/models
 ```
 
-This creates a `.mongoose-drift/default/config.json` in your project root.
+This saves a config to `.mongoose-drift/default/config.json`.
 
-### 2. Take a Snapshot
+### Step 2 — Take a snapshot
 
-Baseline your current schema:
+Freeze your current schema:
 
 ```bash
 npx mongoose-drift snapshot --version 1.0.0
 ```
 
-### 3. Make Changes
+Snapshot saved to `.mongoose-drift/default/1.0.0.json`. Commit this file — it's your schema history.
 
-Edit your Mongoose models — add fields, remove fields, change types, update refs, add indexes.
+### Step 3 — Edit your models
 
-### 4. Diff Against HEAD
+Go make changes. Add a field, remove one, change a type. Whatever you need.
 
-Compare your saved snapshot against the current live state of your models:
+### Step 4 — See what changed
 
 ```bash
 npx mongoose-drift diff 1.0.0 HEAD
 ```
 
-Generate a migration stub alongside the diff:
+Output:
+
+```
+Schema diff: 1.0.0 → HEAD
+
+Collection: User
+  + phoneNumber              (String)  [FIELD ADDED]
+  - bio                      (String)  [FIELD REMOVED]
+  ~ role                     {"type":"String"} → {"type":"String","enum":["admin","user"]}  [MODIFIED]
+
+Summary: 0 added  0 removed  1 modified
+```
+
+### Step 5 — Generate a migration stub
 
 ```bash
 npx mongoose-drift diff 1.0.0 HEAD --stub
 ```
 
-## CLI Reference
+Creates `migrations/default/1.0.0-to-HEAD.js`:
 
-| Command | Description |
-|---------|-------------|
-| `init --models <path>` | Initialize config with models directory |
-| `snapshot --version <v>` | Save a versioned schema snapshot |
-| `diff <from> <to>` | Compare two snapshots (use `HEAD` for current state) |
-| `log` | List all saved snapshots |
-| `show <version>` | Print the schema of a saved snapshot |
-| `setup-ai` | Refresh AI agent instruction files |
+```js
+// Auto-generated by mongoose-drift
+module.exports = {
+  async up(db) {
+    // TODO: Add field 'phoneNumber'
+    // await db.collection('users').updateMany({}, { $set: { phoneNumber: null } });
 
-### Diff Options
+    // TODO: Remove field 'bio' — verify no data dependency first
+    // await db.collection('users').updateMany({}, { $unset: { bio: '' } });
 
-| Flag | Description |
-|------|-------------|
-| `--stub` | Generate a `migrate-mongo` migration file |
-| `--json` | Output diff as raw JSON |
-| `--txt [path]` | Export diff as a plain-text file |
-| `-p, --project <name>` | Target a specific project namespace (default: `default`) |
+    // TODO: Field 'role' was modified — handle data transformation
+  },
+  async down(db) {
+    // TODO: Reverse the above operations
+  },
+};
+```
 
-## AI Agent Support
+Review it, uncomment the lines you want, and run with `migrate-mongo`.
 
-When mongoose-drift is installed, a `postinstall` script runs automatically and writes instruction blocks into the agent files your tools already read:
+---
 
-| File | Agent |
-|------|-------|
-| `CLAUDE.md` | Claude Code |
-| `.cursor/rules/mongoose-drift.mdc` | Cursor (new format) |
-| `.cursorrules` | Cursor (legacy) |
-| `.github/copilot-instructions.md` | GitHub Copilot |
-| `.windsurfrules` | Windsurf |
-| `.augment/guidelines.md` | Augment |
+## AI integration
 
-**Update-not-overwrite:** existing file content is preserved. The injected block is wrapped in `<!-- mongoose-drift:start/end -->` markers so re-running `setup-ai` replaces only that block.
+When you install mongoose-drift, it runs a `postinstall` script that writes a context block into every AI agent config file it finds in your project.
 
-After saving your first snapshot, re-run `setup-ai` so agents can see the available versions:
+```mermaid
+flowchart TD
+    A["npm install mongoose-drift"] --> B["postinstall script runs"]
+    B --> C["Writes context block into\nyour agent files"]
+    C --> D["CLAUDE.md"]
+    C --> E[".cursorrules\n.cursor/rules/mongoose-drift.mdc"]
+    C --> F[".github/copilot-instructions.md"]
+    C --> G[".windsurfrules"]
+    C --> H[".augment/guidelines.md"]
+    C --> I["gemini.md"]
+    D & E & F & G & H & I --> J["Your AI tool now knows\nwhich commands to run\nto read your schema"]
+```
+
+The block tells your AI tool:
+- that mongoose-drift is installed
+- which commands to run to list snapshots, read schema, and diff changes
+- where snapshot files live
+
+**After saving your first snapshot**, refresh the AI files so agents can also see which versions exist:
 
 ```bash
 npx mongoose-drift snapshot --version 1.0.0
 npx mongoose-drift setup-ai
 ```
 
-The injected content tells agents which commands to run to read your current schema, so they can answer questions about collection structure, field types, and pending migrations without manual context.
+**Safe to re-run.** The block is wrapped in `<!-- mongoose-drift:start/end -->` markers. Re-running `setup-ai` only replaces that block — everything else in your file is untouched.
 
-## Multi-Project Usage
+### What your AI can then do
 
-For monorepos or multi-service architectures, isolate schemas per project:
+Once the context is injected, you can ask your AI assistant:
+
+> *"What fields does the User collection have?"*
+> *"Did any fields change since v1.0.0?"*
+> *"Write a migration for the changes since the last snapshot."*
+
+The agent will run `npx mongoose-drift show <version>` or `diff <version> HEAD` on its own to get the answer.
+
+---
+
+## All commands
+
+| Command | What it does |
+|---------|-------------|
+| `init --models <path>` | Set up config pointing to your models folder |
+| `snapshot --version <v>` | Save a snapshot of your current schema |
+| `diff <from> <to>` | Compare two snapshots (use `HEAD` for current state) |
+| `log` | List all saved snapshots |
+| `show <version>` | Print the full schema for a snapshot as JSON |
+| `setup-ai` | Refresh AI agent instruction files |
+
+### Diff flags
+
+| Flag | What it does |
+|------|-------------|
+| `--stub` | Generate a `migrate-mongo` migration file |
+| `--json` | Output diff as JSON (useful for scripts or AI tools) |
+| `--txt [path]` | Export diff as a plain-text file |
+| `-p, --project <name>` | Use a specific project namespace (default: `default`) |
+
+---
+
+## Multi-project / monorepo
+
+If you have multiple services or databases, isolate them with `-p`:
 
 ```bash
 npx mongoose-drift init --models ./apps/auth/models -p auth
 npx mongoose-drift init --models ./apps/billing/models -p billing
 
-npx mongoose-drift snapshot --version 1.0.0 -p billing
+npx mongoose-drift snapshot --version 1.0.0 -p auth
 npx mongoose-drift diff 1.0.0 HEAD -p billing --stub
 ```
 
-Snapshots and migrations are stored separately under each project namespace.
+Each project stores its snapshots and migrations separately under its own namespace.
+
+---
 
 ## Programmatic API
 
@@ -142,30 +206,33 @@ import {
   detectPotentialRenames,
 } from 'mongoose-drift';
 
-const before = { version: '1.0.0', createdAt: '...', modelsPath: './models', collections: { /* ... */ } };
-const after  = { version: '2.0.0', createdAt: '...', modelsPath: './models', collections: { /* ... */ } };
+const before = await loadSnapshot('1.0.0', 'default');
+const after  = await loadSnapshot('HEAD', 'default');
 
 const diff = diffSnapshots(before, after);
-const renames = detectPotentialRenames(diff.collections['User']?.changes ?? []);
 
-// Index changes are available alongside field changes
+// Field changes for a collection
+const fieldChanges = diff.collections['User']?.changes ?? [];
+const renames = detectPotentialRenames(fieldChanges);
+
+// Index changes for a collection
 const indexChanges = diff.collections['User']?.indexChanges ?? [];
 ```
 
-### Exported Functions
+### Exported functions
 
 | Function | Description |
 |----------|-------------|
 | `extractSchemas(modelsPath)` | Extract schemas from a models directory |
-| `diffSnapshots(before, after)` | Compute field- and index-level diff between two snapshots |
-| `detectPotentialRenames(changes)` | Find likely renames in a set of field changes |
+| `diffSnapshots(before, after)` | Compute field- and index-level diff |
+| `detectPotentialRenames(changes)` | Find likely renames in field changes |
 | `saveSnapshot(options)` | Save a snapshot to disk |
 | `loadSnapshot(version, project)` | Load a snapshot from disk |
 | `listSnapshots(project)` | List all saved snapshot versions |
 | `generateStub(diff, from, to, project)` | Generate a migration stub file |
 | `setupAI(projectRoot)` | Write or update AI agent instruction files |
 
-### Exported Types
+### Exported types
 
 ```typescript
 import type {
@@ -173,25 +240,17 @@ import type {
   DiffResult,
   FieldChange,
   IndexChange,
-  IndexDefinition,
   CollectionChange,
   FieldDefinition,
 } from 'mongoose-drift';
 ```
 
-## How It Works
-
-1. **Extract** — Loads Mongoose model files via `require()`, walks `schema.paths` to normalize fields into a portable format. Indexes are captured from `schema._indexes`.
-2. **Snapshot** — Serializes the extracted schema to a versioned JSON file under `.mongoose-drift/<project>/`.
-3. **Diff** — Compares two snapshots field-by-field and index-by-index, detecting additions, removals, modifications, and potential renames.
-4. **Report** — Formats the diff as colored terminal output, JSON, or plain text.
-5. **Stub** — Translates the diff into a `migrate-mongo` compatible migration file with `$set`, `$unset`, `$rename`, `createIndex`, and `dropIndex` operations.
-6. **AI Setup** — On install, writes instruction blocks into agent-specific files so AI tools can immediately query the schema without manual configuration.
+---
 
 ## Requirements
 
 - Node.js >= 16
-- Mongoose >= 6 (as a peer dependency in your project)
+- Mongoose >= 6 (installed in your project — mongoose-drift reads your model files)
 
 ## License
 

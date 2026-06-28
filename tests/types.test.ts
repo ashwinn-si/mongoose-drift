@@ -113,6 +113,45 @@ describe('IndexDefinitionSchema (Zod)', () => {
     const result = IndexDefinitionSchema.safeParse({});
     expect(result.success).toBe(false);
   });
+
+  it('validates 2dsphere index', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { location: '2dsphere' } });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates hashed index', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { userId: 'hashed' } });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates 2d index', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { coords: '2d' } });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates wildcard index', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { '$**': 1 } });
+    expect(result.success).toBe(true);
+  });
+
+  it('validates geoHaystack index', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { loc: 'geoHaystack' } });
+    expect(result.success).toBe(true);
+  });
+
+  it('allows custom options via catchall', () => {
+    const result = IndexDefinitionSchema.safeParse({
+      fields: { createdAt: 1 },
+      options: { unique: false, expireAfterSeconds: 86400 },
+    });
+    expect(result.success).toBe(true);
+    expect((result.data!.options as any).expireAfterSeconds).toBe(86400);
+  });
+
+  it('rejects completely unknown direction string', () => {
+    const result = IndexDefinitionSchema.safeParse({ fields: { name: 'ascending' } });
+    expect(result.success).toBe(false);
+  });
 });
 
 // ─────────────────────────────────────────────────────

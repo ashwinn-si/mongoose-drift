@@ -175,3 +175,109 @@ describe('generateStub', () => {
     fs.rmSync(freshDir, { recursive: true, force: true });
   });
 });
+
+// ─────────────────────────────────────────────────────
+// generateStub — index changes
+// ─────────────────────────────────────────────────────
+describe('generateStub — index changes', () => {
+  const testProject = '__test-stub-idx-project__';
+  const migrationsDir = path.resolve(process.cwd(), 'migrations', testProject);
+
+  afterAll(() => {
+    if (fs.existsSync(migrationsDir)) {
+      fs.rmSync(migrationsDir, { recursive: true, force: true });
+    }
+  });
+
+  it('generates commented createIndex for an added index', () => {
+    const result: DiffResult = {
+      collections: {
+        User: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { email: 1 }, options: { unique: true } }],
+        },
+      },
+    };
+    const filePath = generateStub(result, 'idx-v1', 'idx-v2', testProject);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('createIndex');
+    expect(content).toContain('email');
+    expect(content).toContain('unique');
+  });
+
+  it('generates commented dropIndex for a removed index', () => {
+    const result: DiffResult = {
+      collections: {
+        Order: {
+          type: 'modified',
+          indexChanges: [{ type: 'removed', fields: { ref: -1 } }],
+        },
+      },
+    };
+    const filePath = generateStub(result, 'idx-v3', 'idx-v4', testProject);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('dropIndex');
+    expect(content).toContain('ref');
+  });
+
+  it('generates both field and index stubs in the same file', () => {
+    const result: DiffResult = {
+      collections: {
+        Product: {
+          type: 'modified',
+          changes: [
+            { type: 'added', field: 'sku', after: { type: 'String' } },
+            { type: 'removed', field: 'code', before: { type: 'String' } },
+          ],
+          indexChanges: [
+            { type: 'added', fields: { price: 1 } },
+            { type: 'removed', fields: { name: 1 } },
+          ],
+        },
+      },
+    };
+    const filePath = generateStub(result, 'idx-v5', 'idx-v6', testProject);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('$set');
+    expect(content).toContain('$unset');
+    expect(content).toContain('createIndex');
+    expect(content).toContain('dropIndex');
+  });
+
+  it('all index operations are commented out by default', () => {
+    const result: DiffResult = {
+      collections: {
+        Log: {
+          type: 'modified',
+          indexChanges: [
+            { type: 'added', fields: { ts: -1 } },
+            { type: 'removed', fields: { old: 1 } },
+          ],
+        },
+      },
+    };
+    const filePath = generateStub(result, 'idx-v7', 'idx-v8', testProject);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    const indexLines = lines.filter(l => l.includes('createIndex') || l.includes('dropIndex'));
+    expect(indexLines.length).toBeGreaterThan(0);
+    indexLines.forEach(line => {
+      expect(line.trimStart()).toMatch(/^\/\//);
+    });
+  });
+
+  it('includes compound index fields in the stub', () => {
+    const result: DiffResult = {
+      collections: {
+        Rent: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { tenant: 1, dueDate: -1 } }],
+        },
+      },
+    };
+    const filePath = generateStub(result, 'idx-v9', 'idx-v10', testProject);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain('tenant');
+    expect(content).toContain('dueDate');
+  });
+});

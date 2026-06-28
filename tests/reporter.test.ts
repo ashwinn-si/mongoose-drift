@@ -1,5 +1,5 @@
 import { generateTextReport } from '../src/reporter';
-import { DiffResult } from '../src/types';
+import { DiffResult, IndexChange } from '../src/types';
 
 describe('generateTextReport', () => {
   it('returns "no changes" message for empty diff', () => {
@@ -141,5 +141,99 @@ describe('generateTextReport', () => {
     expect(report).toContain('1 added');
     expect(report).toContain('1 removed');
     expect(report).toContain('2 modified');
+  });
+});
+
+// ─────────────────────────────────────────────────────
+// generateTextReport — index changes
+// ─────────────────────────────────────────────────────
+describe('generateTextReport — index changes', () => {
+  it('reports an added index', () => {
+    const result: DiffResult = {
+      collections: {
+        User: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { email: 1 } }],
+        },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('INDEX ADDED');
+    expect(report).toContain('email');
+  });
+
+  it('reports a removed index', () => {
+    const result: DiffResult = {
+      collections: {
+        User: {
+          type: 'modified',
+          indexChanges: [{ type: 'removed', fields: { email: 1 } }],
+        },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('INDEX REMOVED');
+  });
+
+  it('includes index options in output', () => {
+    const result: DiffResult = {
+      collections: {
+        Order: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { ref: 1 }, options: { sparse: true } }],
+        },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('sparse');
+  });
+
+  it('reports both field and index changes in the same collection', () => {
+    const result: DiffResult = {
+      collections: {
+        Product: {
+          type: 'modified',
+          changes: [{ type: 'added', field: 'sku', after: { type: 'String' } }],
+          indexChanges: [
+            { type: 'removed', fields: { name: 1 } },
+            { type: 'added', fields: { price: 1 } },
+          ],
+        },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('FIELD ADDED');
+    expect(report).toContain('INDEX REMOVED');
+    expect(report).toContain('INDEX ADDED');
+  });
+
+  it('counts modified correctly when only index changes exist (no field changes)', () => {
+    const result: DiffResult = {
+      collections: {
+        A: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { x: 1 } }],
+        },
+        B: { type: 'added' },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('1 added');
+    expect(report).toContain('0 removed');
+    expect(report).toContain('1 modified');
+  });
+
+  it('reports compound index fields', () => {
+    const result: DiffResult = {
+      collections: {
+        Rent: {
+          type: 'modified',
+          indexChanges: [{ type: 'added', fields: { tenant: 1, dueDate: -1 } }],
+        },
+      },
+    };
+    const report = generateTextReport(result, 'v1', 'v2');
+    expect(report).toContain('tenant');
+    expect(report).toContain('dueDate');
   });
 });

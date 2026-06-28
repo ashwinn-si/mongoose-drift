@@ -21,12 +21,18 @@ export const FieldDefinitionSchema = z.object({
 }).catchall(z.unknown());
 
 export const IndexDefinitionSchema = z.object({
-  fields: z.record(z.union([z.literal(1), z.literal(-1), z.literal('text')])),
+  fields: z.record(
+    z.union([
+      z.literal(1), z.literal(-1),
+      z.literal('text'), z.literal('2dsphere'), z.literal('2d'),
+      z.literal('hashed'), z.literal('geoHaystack'), z.literal('wildcard'),
+    ])
+  ),
   options: z.object({
     unique: z.boolean().optional(),
     sparse: z.boolean().optional(),
     name: z.string().optional(),
-  }).optional(),
+  }).catchall(z.unknown()).optional(),
 });
 
 export const CollectionSchemaSchema = z.object({
@@ -61,7 +67,7 @@ export type FieldChange = {
 
 export type IndexChange = {
   type: 'added' | 'removed';
-  fields: Record<string, 1 | -1 | 'text'>;
+  fields: IndexDefinition['fields'];
   options?: IndexDefinition['options'];
 };
 

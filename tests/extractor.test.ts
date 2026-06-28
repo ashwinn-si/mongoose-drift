@@ -139,3 +139,130 @@ describe('extractSchemas', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────
+// Field option extraction detail
+// ─────────────────────────────────────────────────────
+describe('extractSchemas — field option extraction', () => {
+  let collections: Awaited<ReturnType<typeof extractSchemas>>;
+
+  beforeAll(async () => {
+    collections = await extractSchemas(MODELS_DIR);
+  });
+
+  it('extracts ref from ObjectId fields (Rent)', () => {
+    const fields = collections['Rent'].fields;
+    expect(fields['tenant'].ref).toBe('User');
+    expect(fields['property'].ref).toBe('Property');
+  });
+
+  it('extracts ref from ObjectId fields (Payment)', () => {
+    const fields = collections['Payment'].fields;
+    expect(fields['payer'].ref).toBe('User');
+    expect(fields['receiver'].ref).toBe('User');
+  });
+
+  it('extracts enum values', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['currency'].enum).toEqual(['INR', 'USD', 'EUR']);
+    expect(rentFields['status'].enum).toContain('pending');
+    expect(rentFields['status'].enum).toContain('paid');
+  });
+
+  it('extracts default values', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['currency'].default).toBe('INR');
+    expect(rentFields['status'].default).toBe('pending');
+    expect(rentFields['isActive'].default).toBe(true);
+    expect(rentFields['notes'].default).toBe('');
+  });
+
+  it('extracts required flag', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['amount'].required).toBe(true);
+    expect(rentFields['tenant'].required).toBe(true);
+    expect(rentFields['dueDate'].required).toBe(true);
+    expect(rentFields['paidAt']).toBeDefined();
+    expect(rentFields['paidAt'].required).toBeFalsy();
+  });
+
+  it('extracts index flag on field', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['amount'].index).toBe(true);
+  });
+
+  it('extracts unique flag', () => {
+    const paymentFields = collections['Payment'].fields;
+    expect(paymentFields['transactionId'].unique).toBe(true);
+  });
+
+  it('extracts trim option', () => {
+    const apartmentFields = collections['platformApartment'].fields;
+    expect(apartmentFields['name'].trim).toBe(true);
+    expect(apartmentFields['clientDbApartmentRef'].trim).toBe(true);
+  });
+
+  it('extracts required on a numeric field with validators', () => {
+    const apartmentFields = collections['platformApartment'].fields;
+    expect(apartmentFields['allowedFlatCount'].required).toBe(true);
+  });
+
+  it('extracts the address field (embedded subdocument schema)', () => {
+    const rentFields = collections['Rent'].fields;
+    // Mongoose stores embedded Schema subdocs as a single path — not flattened
+    expect(rentFields['address']).toBeDefined();
+    expect(typeof rentFields['address'].type).toBe('string');
+  });
+
+  it('extracts nested object paths from inline schema', () => {
+    const propertyFields = collections['Property'].fields;
+    expect(propertyFields['location.lat']).toBeDefined();
+    expect(propertyFields['location.lng']).toBeDefined();
+  });
+
+  it('extracts array of primitives as Array<String>', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['tags'].type).toBe('Array<String>');
+  });
+
+  it('extracts array of ObjectIds as Array<ObjectId>', () => {
+    const rentFields = collections['Rent'].fields;
+    expect(rentFields['paymentHistory'].type).toBe('Array<ObjectId>');
+  });
+
+  it('extracts User roles as array type', () => {
+    const userFields = collections['User'].fields;
+    expect(userFields['roles'].type).toMatch(/^Array</);
+  });
+
+  it('does not include _id or __v in extracted fields', () => {
+    for (const collection of Object.values(collections)) {
+      expect(Object.keys(collection.fields)).not.toContain('_id');
+      expect(Object.keys(collection.fields)).not.toContain('__v');
+    }
+  });
+
+  it('extracts schema-level indexes separately from field definitions', () => {
+    const rent = collections['Rent'];
+    expect(rent.indexes.length).toBeGreaterThanOrEqual(2);
+    const indexFields = rent.indexes.map(idx => JSON.stringify(idx.fields));
+    expect(indexFields).toContain(JSON.stringify({ tenant: 1, dueDate: -1 }));
+    expect(indexFields).toContain(JSON.stringify({ status: 1, isActive: 1 }));
+  });
+
+  it('extracts Payment schema-level indexes', () => {
+    const payment = collections['Payment'];
+    expect(payment.indexes.length).toBeGreaterThanOrEqual(1);
+    const namedIdx = payment.indexes.find(i => i.options?.name === 'txn_unique_idx');
+    expect(namedIdx).toBeDefined();
+  });
+
+  it('type for all extracted fields is a non-empty string', () => {
+    for (const collection of Object.values(collections)) {
+      for (const [fieldName, def] of Object.entries(collection.fields)) {
+        expect(typeof def.type).toBe('string');
+        expect(def.type.length).toBeGreaterThan(0);
+      }
+    }
+  });
+});

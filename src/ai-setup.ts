@@ -1,6 +1,5 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { listSnapshots } from './snapshot';
 
 const MARKER_START = '<!-- mongoose-drift:start -->';
 const MARKER_END = '<!-- mongoose-drift:end -->';
@@ -12,7 +11,7 @@ function buildContent(projectRoot: string): string {
     '## mongoose-drift — Mongoose Schema Versioning',
     '',
     'This project uses [mongoose-drift](https://github.com/ashwinn-si/mongoose-drift) to version and diff Mongoose schemas.',
-    'Snapshots live in `.mongoose-drift/`.',
+    'Snapshots live in `.mongoose-drift/` as JSON files — each records every collection\'s fields, types, indexes, and options.',
     '',
     '### Commands',
     '',
@@ -21,9 +20,22 @@ function buildContent(projectRoot: string): string {
     '| `npx mongoose-drift log [-p <project>]` | List all saved schema snapshots |',
     '| `npx mongoose-drift show <version> [-p <project>]` | Print full schema for a snapshot as JSON |',
     '| `npx mongoose-drift diff <from> HEAD [-p <project>]` | Compare a snapshot to the current live schema |',
-    '| `npx mongoose-drift diff <from> HEAD --json` | Same output as JSON |',
-    '| `npx mongoose-drift snapshot --version <v>` | Save current schema state |',
-    '| `npx mongoose-drift diff <from> <to> --stub` | Generate a `migrate-mongo` migration stub |',
+    '| `npx mongoose-drift diff <from> HEAD --json [-p <project>]` | Same diff as machine-readable JSON |',
+    '| `npx mongoose-drift diff <from> HEAD --txt [-p <project>]` | Export diff as a text file (useful for writing migrations) |',
+    '| `npx mongoose-drift snapshot --version <v> [-p <project>]` | Save current schema state |',
+    '| `npx mongoose-drift diff <from> <to> --stub [-p <project>]` | Generate a `migrate-mongo` migration stub |',
+    '| `npx mongoose-drift setup-ai` | Refresh these AI instruction files after adding snapshots |',
+    '',
+    '### Notes for AI agents',
+    '',
+    '- `HEAD` means "the live schema right now" — reads model files on disk, no snapshot needed.',
+    '- `npx mongoose-drift show <version> --json` outputs a JSON object keyed by collection name.',
+    '  Each collection has `fields` (record of fieldName → `{type, required?, default?, ref?, enum?, ...}`)',
+    '  and `indexes` (array of `{fields: {fieldName: 1|-1|"text"}, options?}`).',
+    '- Use `--json` flag when you need to parse diff output programmatically.',
+    '- Use `--txt` to produce a plain-text migration guide you can read and act on.',
+    '- Field types use Mongoose instance names: `String`, `Number`, `Boolean`, `Date`, `ObjectId`,',
+    '  `Array<String>`, `Mixed`, etc.',
     '',
     '### How to inspect the schema',
     '',
@@ -33,30 +45,36 @@ function buildContent(projectRoot: string): string {
     '',
     snapshotInfo,
   ]
-    .filter(line => line !== null)
-    .join('\n');
+    .filter(line => line !== null && line !== undefined)
+    .join('\n')
+    .trimEnd();
 }
 
 function discoverSnapshots(projectRoot: string): string {
   const driftDir = path.join(projectRoot, '.mongoose-drift');
   if (!fs.existsSync(driftDir)) return '';
 
-  const projects = fs.readdirSync(driftDir).filter(f => {
-    return fs.statSync(path.join(driftDir, f)).isDirectory();
-  });
+  const projects = fs.readdirSync(driftDir).filter(f =>
+    fs.statSync(path.join(driftDir, f)).isDirectory()
+  );
 
   if (projects.length === 0) return '';
 
   const lines: string[] = ['### Known snapshots', ''];
   for (const project of projects) {
     try {
-      const snapshots = listSnapshots(project);
+      const projectDir = path.join(driftDir, project);
+      const snapshots = fs
+        .readdirSync(projectDir)
+        .filter(f => f.endsWith('.json') && f !== 'config.json')
+        .map(f => f.replace('.json', ''))
+        .sort();
       if (snapshots.length > 0) {
         const latest = snapshots[snapshots.length - 1];
         lines.push(`- **${project}**: ${snapshots.join(', ')} _(latest: \`${latest}\`)_`);
       }
     } catch {
-      // skip
+      // skip unreadable project dirs
     }
   }
 
@@ -108,6 +126,7 @@ export function setupAI(projectRoot: string): void {
     { rel: '.github/copilot-instructions.md' },
     { rel: '.windsurfrules' },
     { rel: '.augment/guidelines.md' },
+    { rel: 'gemini.md' },
     {
       rel: '.cursor/rules/mongoose-drift.mdc',
       replace: true,
