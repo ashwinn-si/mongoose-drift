@@ -17,14 +17,22 @@ Snapshot your schema, change your models, then diff the two to see exactly what'
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["Your Mongoose\nmodel files"] -->|"snapshot --version 1.0.0"| B[("Snapshot saved\n.mongoose-drift/")]
-    B --> C["Edit your models\n(add fields, remove fields, etc.)"]
-    C -->|"diff 1.0.0 HEAD"| D["Diff output"]
-    D -->|"--stub"| E["migration.js\n(migrate-mongo)"]
-    D -->|"--json"| F["diff.json\n(machine-readable)"]
-    D -->|"--txt"| G["diff.txt\n(plain text)"]
+```
+  Your Mongoose                   Snapshot stored
+  model files     ── snapshot ──► .mongoose-drift/
+                                   └─ 1.0.0.json
+                                        │
+                                  Edit your models
+                                  (fields, indexes…)
+                                        │
+                                        ▼
+                                 diff 1.0.0 HEAD
+                           ┌──────────┼──────────┐
+                           ▼          ▼          ▼
+                        --stub      --json      --txt
+                           │          │          │
+                      migration   diff.json   diff.txt
+                         .js
 ```
 
 > **What is `HEAD`?** It means "my models right now, on disk" — no snapshot needed. `diff 1.0.0 HEAD` compares snapshot v1.0.0 against your current live model files.
@@ -120,17 +128,22 @@ Review it, uncomment the lines you want, and run with `migrate-mongo`.
 
 When you install mongoose-drift, it runs a `postinstall` script that writes a context block into every AI agent config file it finds in your project.
 
-```mermaid
-flowchart TD
-    A["npm install mongoose-drift"] --> B["postinstall script runs"]
-    B --> C["Writes context block into\nyour agent files"]
-    C --> D["CLAUDE.md"]
-    C --> E[".cursorrules\n.cursor/rules/mongoose-drift.mdc"]
-    C --> F[".github/copilot-instructions.md"]
-    C --> G[".windsurfrules"]
-    C --> H[".augment/guidelines.md"]
-    C --> I["gemini.md"]
-    D & E & F & G & H & I --> J["Your AI tool now knows\nwhich commands to run\nto read your schema"]
+```
+  npm install mongoose-drift
+             │
+             ▼
+       postinstall runs
+             │
+   ┌─────┬───┴───┬──────┬────────┬─────────┐
+   ▼     ▼       ▼      ▼        ▼         ▼
+CLAUDE  .cursor  copilot .windsurf .augment  gemini
+  .md   rules    instruct  rules   guidelines  .md
+   └─────┴───────┴──────┴────────┴─────────┘
+                      │
+                      ▼
+        Your AI tool knows which commands
+        to run to read your schema —
+        without any manual setup
 ```
 
 The block tells your AI tool:
